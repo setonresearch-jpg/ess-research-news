@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Upcoming Events</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap');
+    body{margin:0;font-family:'Lato',sans-serif;background:#fff;color:#222}
+    .container{padding:6px}
+    .section-title{font-size:14px;font-weight:900;letter-spacing:.5px;text-transform:uppercase;color:#222;margin:0 0 10px;padding-bottom:8px;border-bottom:2px solid #174c2d}
+    .event-card{background:#174c2d;border-radius:4px;padding:11px 13px;margin-bottom:9px}
+    .event-title{font-size:13px;font-weight:700;line-height:1.3;margin-bottom:5px;color:#fff}
+    .event-title a{color:#fff;text-decoration:none}
+    .event-title a:hover{text-decoration:underline}
+    .event-date{font-size:10px;color:#c8d5cc;margin-bottom:2px}
+    .event-details{font-size:10px;line-height:1.4;color:#c8d5cc}
+    .empty{font-size:11px;color:#777;padding:10px 0}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="section-title">Upcoming Events</div>
+    <div id="events" aria-live="polite">Loading events...</div>
+  </div>
+  <script>
+
+    async function loadData(file) {
+      const response = await fetch(file, {cache: 'no-store'});
+      if (!response.ok) throw new Error(`Failed to load ${file} (${response.status})`);
+      const data = await response.json();
+      if (!Array.isArray(data)) throw new Error('Invalid feed format');
+      return data;
+    }
+
+    function safeUrl(value, allowRelative = false) {
+      if (!value || typeof value !== 'string') return '';
+      try {
+        const url = new URL(value, window.location.href);
+        if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
+        if (!allowRelative && !/^https?:\/\//i.test(value.trim())) return '';
+        return url.href;
+      } catch { return ''; }
+    }
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text != null) node.textContent = String(text);
+      return node;
+    }
+
+    function addSafeLink(parent, className, label, address) {
+      const url = safeUrl(address);
+      if (!url) {
+        parent.append(el('span', className, label));
+        return;
+      }
+      const link = el('a', className, label);
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      parent.append(link);
+    }
+
+    async function loadEvents() {
+      const container = document.getElementById('events');
+      try {
+        const events = await loadData('./events.json');
+        container.replaceChildren();
+        if (!events.length) {container.append(el('div','empty','There are currently no scheduled events.'));return;}
+        for (const event of events) {
+          const card = el('div','event-card');
+          const title = el('div','event-title');
+          addSafeLink(title,'',event.title || '',event.link);
+          card.append(title);
+          card.append(el('div','event-date',event.date || ''));
+          const details = el('div','event-details');
+          if (event.time) details.append(document.createTextNode(String(event.time)));
+          if (event.time && event.venue) details.append(document.createTextNode('  •  '));
+          if (event.venue) details.append(document.createTextNode(String(event.venue)));
+          card.append(details);
+          container.append(card);
+        }
+      } catch(error) {console.error(error);container.textContent='Error loading events.';}
+    }
+    loadEvents();
+  </script>
+</body>
+</html>

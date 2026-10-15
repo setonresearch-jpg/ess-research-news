@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Latest Articles</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap');
+    body {font-family:'Lato',sans-serif;margin:0;color:#222;background:#fff}
+    .container {max-width:1000px;margin:auto;padding:20px}
+    .article {display:flex;gap:24px;padding:24px 0;border-bottom:1px solid #ddd;align-items:flex-start}
+    .article img {width:24%;max-width:220px;min-width:180px;aspect-ratio:16 / 10;object-fit:cover}
+    .article-info {flex:1;min-width:0}
+    .date {font-size:11px;color:#777;margin-bottom:7px}
+    .title {font-size:22px;font-weight:700;line-height:1.35;margin-bottom:10px;color:#044a05}
+    .title a {color:#044a05;text-decoration:none}
+    .title a:hover,.read-more:hover {text-decoration:underline}
+    .summary {font-size:16px;line-height:1.6;color:#444;margin-bottom:12px;white-space:pre-line}
+    .read-more {font-size:12px;font-weight:700;color:#044a05;text-decoration:none}
+    .loading {font-size:12px;color:#777;padding:20px 0}
+    @media(max-width:650px){.article{display:block}.article img{width:100%;max-width:100%;min-width:0;height:auto;margin-bottom:14px}}
+  </style>
+</head>
+<body>
+  <div class="container"><div id="articles" class="loading" aria-live="polite">Loading articles...</div></div>
+  <script>
+
+    async function loadData(file) {
+      const response = await fetch(file, {cache: 'no-store'});
+      if (!response.ok) throw new Error(`Failed to load ${file} (${response.status})`);
+      const data = await response.json();
+      if (!Array.isArray(data)) throw new Error('Invalid feed format');
+      return data;
+    }
+
+    function safeUrl(value, allowRelative = false) {
+      if (!value || typeof value !== 'string') return '';
+      try {
+        const url = new URL(value, window.location.href);
+        if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
+        if (!allowRelative && !/^https?:\/\//i.test(value.trim())) return '';
+        return url.href;
+      } catch { return ''; }
+    }
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text != null) node.textContent = String(text);
+      return node;
+    }
+
+    function addSafeLink(parent, className, label, address) {
+      const url = safeUrl(address);
+      if (!url) {
+        parent.append(el('span', className, label));
+        return;
+      }
+      const link = el('a', className, label);
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      parent.append(link);
+    }
+
+    async function loadNews() {
+      const container = document.getElementById('articles');
+      try {
+        const articles = await loadData('./news.json');
+        container.replaceChildren();
+        container.classList.remove('loading');
+        if (!articles.length) { container.textContent = 'No published articles found.'; return; }
+        for (const article of articles) {
+          const item = el('div', 'article');
+          const imageUrl = safeUrl(article.image, true);
+          if (imageUrl) {
+            const picture = el('img');
+            picture.src = imageUrl;
+            picture.alt = article.title ? `Image for ${article.title}` : 'Article image';
+            picture.loading = 'lazy';
+            item.append(picture);
+          }
+          const info = el('div', 'article-info');
+          info.append(el('div', 'date', article.date || ''));
+          const heading = el('div', 'title');
+          addSafeLink(heading, '', article.title || '', article.link);
+          info.append(heading);
+          info.append(el('div', 'summary', article.summary || ''));
+          if (safeUrl(article.link)) addSafeLink(info, 'read-more', 'READ MORE', article.link);
+          item.append(info);
+          container.append(item);
+        }
+      } catch (error) {
+        console.error(error);
+        container.textContent = 'Unable to load articles. Please try again later.';
+      }
+    }
+    loadNews();
+  </script>
+</body>
+</html>
